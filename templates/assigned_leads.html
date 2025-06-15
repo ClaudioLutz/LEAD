@@ -16,26 +16,37 @@
             <th>Name</th>
             <th>Email</th>
             <th>City</th>
+            <th>Status</th>
             <th>Assigned On</th>
             {% if current_user.role == 'Manager' %}
                 <th>Assigned To</th>
             {% endif %}
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for lead in leads %}
-        <tr>
+        <tr id="lead-row-{{ lead.lead_id }}">
             <td>{{ lead.name }}</td>
             <td>{{ lead.email }}</td>
             <td>{{ lead.ort }}</td>
+            <td><span class="badge bg-primary">{{ lead.status }}</span></td>
             <td>{{ lead.selection_date }}</td>
             {% if current_user.role == 'Manager' %}
                 <td>{{ lead.assigned_to_name }}</td>
             {% endif %}
+            <td>
+                <button class="btn btn-sm btn-info" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#leadDetailModal" 
+                        data-lead-id="{{ lead.lead_id }}">
+                    View / Edit
+                </button>
+            </td>
         </tr>
         {% else %}
         <tr>
-            <td colspan="5" class="text-center">
+            <td colspan="7" class="text-center">
                 {% if current_user.role == 'Manager' %}
                     No leads have been assigned yet.
                 {% else %}
@@ -46,4 +57,154 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div class="modal fade" id="leadDetailModal" tabindex="-1" aria-labelledby="leadDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="btn btn-primary btn-circle me-auto" id="prev-lead" aria-label="Previous Lead"><i class="bi bi-chevron-left"></i></button>
+        <h5 class="modal-title" id="leadDetailModalLabel">Lead Details</h5>
+        <button type="button" class="btn btn-primary btn-circle ms-auto" id="next-lead" aria-label="Next Lead"><i class="bi bi-chevron-right"></i></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modal-lead-id">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Contact Information</h5>
+                <p><strong>Name:</strong> <span id="modal-lead-name"></span></p>
+                <p><strong>Email:</strong> <span id="modal-lead-email"></span></p>
+                <p><strong>Phone:</strong> <span id="modal-lead-number"></span></p>
+            </div>
+            <div class="col-md-6">
+                <h5>Company Information</h5>
+                <p><strong>City:</strong> <span id="modal-lead-ort"></span></p>
+                <p><strong>Industry:</strong> <span id="modal-lead-branche"></span></p>
+                <p><strong>Size:</strong> <span id="modal-lead-size"></span></p>
+            </div>
+        </div>
+        <hr>
+        <div class="mb-3">
+            <label for="modal-lead-status" class="form-label"><strong>Categorize Lead Status</strong></label>
+            <select class="form-select" id="modal-lead-status">
+                <option value="New">New</option>
+                <option value="Contacted">Contacted</option>
+                <option value="Qualified">Qualified</option>
+                <option value="Proposal Sent">Proposal Sent</option>
+                <option value="Unqualified">Unqualified</option>
+            </select>
+        </div>
+        <div class="mb-3">
+          <label for="modal-lead-notes" class="form-label"><strong>Notes</strong></label>
+          <textarea class="form-control" id="modal-lead-notes" rows="5"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="save-lead-changes">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const leadDetailModal = document.getElementById('leadDetailModal');
+    const prevLeadButton = document.getElementById('prev-lead');
+    const nextLeadButton = document.getElementById('next-lead');
+    let allLeadIds = [];
+    let currentLeadIndex = -1;
+
+    function fetchAndPopulateLeadDetails(leadId) {
+        document.getElementById('modal-lead-id').value = leadId;
+        fetch(`/lead/${leadId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    // Handle error display
+                    alert('Error fetching lead details: ' + data.error);
+                } else {
+                    document.getElementById('modal-lead-name').textContent = data.name;
+                    document.getElementById('modal-lead-email').textContent = data.email;
+                    document.getElementById('modal-lead-number').textContent = data.number;
+                    document.getElementById('modal-lead-ort').textContent = data.ort;
+                    document.getElementById('modal-lead-branche').textContent = data.branche;
+                    document.getElementById('modal-lead-size').textContent = data.size_kategorie;
+                    document.getElementById('modal-lead-notes').value = data.notes;
+                    document.getElementById('modal-lead-status').value = data.status;
+                    updateNavigationButtons();
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('Failed to load lead details. Please check the console.');
+            });
+    }
+
+    function updateNavigationButtons() {
+        prevLeadButton.disabled = currentLeadIndex <= 0;
+        nextLeadButton.disabled = currentLeadIndex >= allLeadIds.length - 1;
+    }
+
+    // Collect all lead IDs from the table
+    const leadRows = document.querySelectorAll('table tbody tr[id^="lead-row-"]');
+    leadRows.forEach(row => {
+        const viewButton = row.querySelector('button[data-lead-id]');
+        if (viewButton) {
+            allLeadIds.push(viewButton.getAttribute('data-lead-id'));
+        }
+    });
+    
+    // Event listener for when the modal is about to be shown
+    leadDetailModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget; // Button that triggered the modal
+        const leadId = button.getAttribute('data-lead-id');
+        currentLeadIndex = allLeadIds.indexOf(leadId);
+        fetchAndPopulateLeadDetails(leadId);
+    });
+
+    prevLeadButton.addEventListener('click', function() {
+        if (currentLeadIndex > 0) {
+            currentLeadIndex--;
+            fetchAndPopulateLeadDetails(allLeadIds[currentLeadIndex]);
+        }
+    });
+
+    nextLeadButton.addEventListener('click', function() {
+        if (currentLeadIndex < allLeadIds.length - 1) {
+            currentLeadIndex++;
+            fetchAndPopulateLeadDetails(allLeadIds[currentLeadIndex]);
+        }
+    });
+
+    // Event listener for the "Save Changes" button
+    document.getElementById('save-lead-changes').addEventListener('click', function() {
+        const leadId = document.getElementById('modal-lead-id').value;
+        const notes = document.getElementById('modal-lead-notes').value;
+        const status = document.getElementById('modal-lead-status').value;
+
+        fetch(`/lead/${leadId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ notes: notes, status: status }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(leadDetailModal);
+                modal.hide();
+                // Refresh page to show updated status, or update the row dynamically
+                 location.reload(); 
+            } else {
+                alert('Error saving changes: ' + data.message);
+            }
+        });
+    });
+});
+</script>
+
 {% endblock %}

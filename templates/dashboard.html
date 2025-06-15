@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}{% if current_user.role == 'Representative' %}Available Leads{% else %}Dashboard{% endif %}{% endblock %}
 {% block content %}
 <div class="row">
     <div class="col-md-3">
@@ -49,7 +49,10 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h3>Available Leads</h3>
             {% if current_user.role == 'Manager' %}
+            <div>
+                <button type="button" id="select-all-leads" class="btn btn-secondary me-2">Select All</button>
                 <button type="submit" form="assign-form" class="btn btn-primary">Assign Selected Leads</button>
+            </div>
             {% endif %}
         </div>
 
@@ -89,4 +92,53 @@
         {% endif %}
     </div>
 </div>
+
+{% if current_user.role == 'Manager' %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllButton = document.getElementById('select-all-leads');
+        if (selectAllButton) {
+            selectAllButton.addEventListener('click', function() {
+                const checkboxes = document.querySelectorAll('input[name="selected_leads"]');
+                let allChecked = true;
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.checked) {
+                        allChecked = false;
+                    }
+                });
+
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = !allChecked;
+                });
+
+                if (!allChecked) {
+                    selectAllButton.textContent = 'Deselect All';
+                } else {
+                    selectAllButton.textContent = 'Select All';
+                }
+            });
+        }
+
+        // Optional: Update button text if individual checkboxes are changed
+        const leadCheckboxes = document.querySelectorAll('input[name="selected_leads"]');
+        leadCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                let allChecked = true;
+                leadCheckboxes.forEach(cb => {
+                    if (!cb.checked) {
+                        allChecked = false;
+                    }
+                });
+                if (selectAllButton) {
+                    if (allChecked && leadCheckboxes.length > 0) {
+                        selectAllButton.textContent = 'Deselect All';
+                    } else {
+                        selectAllButton.textContent = 'Select All';
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endif %}
 {% endblock %}

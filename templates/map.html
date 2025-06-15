@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Member Map - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+{{ super() }}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="" />
+<style>
+    #memberMap {
+        height: 600px;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Acquired Members Map (Switzerland)</h2>
+    <div id="memberMap"></div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+{{ super() }}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize the map and set its view to Switzerland
+        var map = L.map('memberMap').setView([46.8182, 8.2275], 8); // Coordinates for Switzerland, zoom level 8
+
+        // Add a tile layer to the map (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Placeholder for member data - this will be populated from the backend
+        var members = {{ members_data|tojson|safe }};
+
+        if (members && members.length > 0) {
+            members.forEach(function(member) {
+                if (member.latitude && member.longitude) {
+                    var marker = L.marker([member.latitude, member.longitude]).addTo(map);
+                    if (member.name) {
+                        marker.bindPopup("<b>" + member.name + "</b><br>" + (member.details || ''));
+                    }
+                } else {
+                    console.warn("Member missing coordinates:", member);
+                }
+            });
+        } else {
+            console.log("No member data to display on the map.");
+        }
+    });
+</script>
+{% endblock %}

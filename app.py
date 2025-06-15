@@ -1,7 +1,8 @@
 # DONT Delete--- Generated Hashes ---
+# manager
 # Password: 'manager_password'
 # Hash: $2b$12$OO7UV2uWWaNk//zlLon9PO6/IdM4k3pLUggw4MvwjVRrFoyMBLSwy
-
+# salesrep
 # Password: 'sales_rep_password'
 # Hash: $2b$12$dy7bcgBM9oOVW.5ezzSFweXpOEt3x6qJYZXQKxmLlMFNBZBX.r8Qm
 
@@ -12,7 +13,7 @@
 import yaml
 from datetime import date
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 
@@ -76,6 +77,9 @@ def logout():
 @app.route('/', methods=['GET', 'POST'])
 @login_required
 def dashboard():
+    if current_user.role == 'Representative':
+        return redirect(url_for('assigned_leads'))
+        
     # Get available leads (not yet assigned)
     assigned_ids = db.ASSIGNED_LEADS_DF['lead_id'].tolist()
     available_leads = db.LEADS_DF[~db.LEADS_DF['lead_id'].isin(assigned_ids)]
@@ -150,6 +154,83 @@ def clear_assigned():
         flash('You do not have permission to perform this action.', 'danger')
     return redirect(url_for('assigned_leads'))
 
+@app.route('/lead/<int:lead_id>')
+@login_required
+def get_lead_details(lead_id):
+    """API endpoint to get details for a single lead."""
+    
+    # Check both assigned and available leads
+    lead_details = None
+    if not db.ASSIGNED_LEADS_DF.empty and lead_id in db.ASSIGNED_LEADS_DF['lead_id'].values:
+        lead_details = db.ASSIGNED_LEADS_DF.loc[db.ASSIGNED_LEADS_DF['lead_id'] == lead_id]
+    elif not db.LEADS_DF.empty and lead_id in db.LEADS_DF['lead_id'].values:
+        lead_details = db.LEADS_DF.loc[db.LEADS_DF['lead_id'] == lead_id]
+
+    if lead_details is not None and not lead_details.empty:
+        return jsonify(lead_details.to_dict('records')[0])
+    else:
+        return jsonify({'error': 'Lead not found'}), 404
+
+@app.route('/lead/<int:lead_id>/update', methods=['POST'])
+@login_required
+def update_lead_details(lead_id):
+    """API endpoint to update a lead's notes and status."""
+    data = request.get_json()
+    
+    # We only expect reps to update leads assigned to them
+    if not db.ASSIGNED_LEADS_DF.empty and lead_id in db.ASSIGNED_LEADS_DF['lead_id'].values:
+        lead_index = db.ASSIGNED_LEADS_DF[db.ASSIGNED_LEADS_DF['lead_id'] == lead_id].index[0]
+
+        # Update the DataFrame
+        db.ASSIGNED_LEADS_DF.loc[lead_index, 'notes'] = data.get('notes', '')
+        db.ASSIGNED_LEADS_DF.loc[lead_index, 'status'] = data.get('status', 'New')
+        
+        # In a real app, you would save this change to a persistent database
+        
+        return jsonify({'success': True, 'message': 'Lead updated successfully.'})
+    else:
+        return jsonify({'success': False, 'message': 'Assigned lead not found.'}), 404
+
+@app.route('/member-map')
+@login_required
+def member_map():
+    if current_user.role != 'Manager':
+        flash('You do not have permission to view this page.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # For now, let's assume "acquired members" are those in ASSIGNED_LEADS_DF
+    # with a specific status, e.g., 'Acquired'.
+    # If the status isn't being updated yet, this will show all assigned leads.
+    # We need 'name', 'latitude', 'longitude', and potentially 'notes' or 'branche' as details.
+    
+    acquired_members_df = db.ASSIGNED_LEADS_DF[db.ASSIGNED_LEADS_DF['status'] == 'Acquired']
+    
+    if acquired_members_df.empty:
+        # If no 'Acquired' leads, pass all assigned leads for now, or an empty list
+        # For demonstration, let's pass all assigned leads if no 'Acquired' ones are found.
+        # In a real scenario, you might want to strictly show only 'Acquired' or message if none.
+        # For this task, we will show all assigned leads if no 'Acquired' leads are found.
+        # This ensures the map has data to display if the 'Acquired' status is not yet in use.
+        # A better approach for production would be to ensure 'Acquired' status is correctly set.
+        if db.ASSIGNED_LEADS_DF.empty:
+            members_data = []
+        else:
+            # Select relevant columns for the map
+            members_data = db.ASSIGNED_LEADS_DF[['name', 'latitude', 'longitude', 'branche', 'notes']].copy()
+            members_data.rename(columns={'branche': 'details_branche', 'notes': 'details_notes'}, inplace=True) # Avoid conflict if 'details' is a direct column
+            # Combine branche and notes into a 'details' field for the popup
+            members_data['details'] = members_data.apply(lambda row: f"Branche: {row['details_branche']}<br>Notes: {row['details_notes']}", axis=1)
+            members_data = members_data[['name', 'latitude', 'longitude', 'details']].to_dict('records')
+
+
+    else:
+        # Select relevant columns for the map
+        members_data = acquired_members_df[['name', 'latitude', 'longitude', 'branche', 'notes']].copy()
+        members_data.rename(columns={'branche': 'details_branche', 'notes': 'details_notes'}, inplace=True)
+        members_data['details'] = members_data.apply(lambda row: f"Branche: {row['details_branche']}<br>Notes: {row['details_notes']}", axis=1)
+        members_data = members_data[['name', 'latitude', 'longitude', 'details']].to_dict('records')
+        
+    return render_template('map.html', members_data=members_data)
 
 if __name__ == '__main__':
     app.run(debug=True)
