@@ -1,4 +1,4 @@
-# --- Generated Hashes ---
+# DONT Delete--- Generated Hashes ---
 # Password: 'manager_password'
 # Hash: $2b$12$OO7UV2uWWaNk//zlLon9PO6/IdM4k3pLUggw4MvwjVRrFoyMBLSwy
 
