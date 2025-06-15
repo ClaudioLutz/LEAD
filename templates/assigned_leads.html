@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}My Assigned Leads{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Assigned Leads</h3>
+    {% if current_user.role == 'Manager' %}
+    <form action="{{ url_for('clear_assigned') }}" method="POST" onsubmit="return confirm('Are you sure you want to clear ALL assigned leads? This cannot be undone.');">
+        <button type="submit" class="btn btn-danger">Clear All Assigned Leads</button>
+    </form>
+    {% endif %}
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>City</th>
+            <th>Assigned On</th>
+            {% if current_user.role == 'Manager' %}
+                <th>Assigned To</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for lead in leads %}
+        <tr>
+            <td>{{ lead.name }}</td>
+            <td>{{ lead.email }}</td>
+            <td>{{ lead.ort }}</td>
+            <td>{{ lead.selection_date }}</td>
+            {% if current_user.role == 'Manager' %}
+                <td>{{ lead.assigned_to_name }}</td>
+            {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" class="text-center">
+                {% if current_user.role == 'Manager' %}
+                    No leads have been assigned yet.
+                {% else %}
+                    No leads have been assigned to you.
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,22 @@
+cookie:
+  key: 'a_very_secret_key_please_change_me' # Replace with a real secret key
+  name: 'lead_manager_cookie'
+  expiry_days: 30
+
+credentials:
+  usernames:
+    manager:
+      email: 'manager@example.com'
+      name: 'Manager User'
+      password: '$2b$12$OO7UV2uWWaNk//zlLon9PO6/IdM4k3pLUggw4MvwjVRrFoyMBLSwy' # manager_password
+      role: 'Manager'
+    salesrep:
+      email: 'salesrep@example.com'
+      name: 'Sales Representative'
+      password: '$2b$12$dy7bcgBM9oOVW.5ezzSFweXpOEt3x6qJYZXQKxmLlMFNBZBX.r8Qm' # sales_rep_password
+      role: 'Representative'
+
+preauthorized:
+  emails:
+    - manager@example.com
+    - salesrep@example.com
